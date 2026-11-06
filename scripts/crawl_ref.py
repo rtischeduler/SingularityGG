@@ -6,15 +6,15 @@ from collections import deque
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REF = os.path.join(ROOT, "ref")
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
-MAX_FILES = int(os.environ.get("MAX_FILES", "2000"))
+MAX_FILES = int((os.environ.get("MAX_FILES") or "2000"))
 
-CRAWL_URL = os.environ.get("CRAWL_URL", "https://now.gg").strip()
+CRAWL_URL = (os.environ.get("CRAWL_URL") or "https://now.gg").strip()
 _u = urllib.parse.urlparse(CRAWL_URL)
 if _u.scheme not in ("http", "https") or not _u.netloc:
     sys.exit(f"CRAWL_URL must be a full http(s) URL, got {CRAWL_URL!r}")
 APP_ORIGIN = f"{_u.scheme}://{_u.netloc}"
 OUT = os.path.join(REF, _u.netloc)
-ORIGINS = [APP_ORIGIN] + [o.strip().rstrip("/") for o in os.environ.get("EXTRA_ORIGINS", "").split(",") if o.strip()]
+ORIGINS = [APP_ORIGIN] + [o.strip().rstrip("/") for o in (os.environ.get("EXTRA_ORIGINS") or "").split(",") if o.strip()]
 inside = lambda u: any(u.startswith(o + "/") or u == o for o in ORIGINS)
 
 def http(url, method="GET", headers=None, body=None, binary=False):
