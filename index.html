@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SingularityGG</title>
+<style>
+:root{--bg:#0d0b14;--card:#171322;--line:#2a2340;--ink:#f1eefb;--dim:#9a93b3;--acc:#8b5cf6;--acc2:#c4b5fd;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;color-scheme:dark}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:radial-gradient(1100px 500px at 50% -10%,#241647 0%,var(--bg) 60%) fixed;color:var(--ink);font:500 15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+header{max-width:1200px;margin:0 auto;padding:20px 16px 8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+h1{font-size:1.4rem;letter-spacing:.01em}h1 b{color:var(--acc2)}
+#status{margin-left:auto;font-size:.82rem;color:var(--dim);display:flex;align-items:center;gap:8px}
+#dot{width:9px;height:9px;border-radius:50%;background:var(--warn)}#dot.ok{background:var(--ok)}#dot.err{background:var(--bad)}
+.bar{max-width:1200px;margin:0 auto;padding:8px 16px;display:flex;gap:10px;flex-wrap:wrap}
+input,select,.btn{background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:11px 13px;font:inherit;outline:none}
+input:focus,select:focus{border-color:var(--acc)}
+#q{flex:1 1 220px;min-width:0}select{max-width:100%}
+.btn{cursor:pointer;font-weight:700}.btn:hover:not(:disabled){border-color:var(--acc)}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}.btn:disabled{opacity:.5;cursor:not-allowed}
+#meta{max-width:1200px;margin:0 auto;padding:4px 16px 10px;color:var(--dim);font-size:.85rem;min-height:1.6em}
+#selbar{max-width:1200px;margin:0 auto 6px;padding:0 16px}
+#selbar .in{display:none;align-items:center;gap:12px;background:var(--card);border:1px solid var(--acc);border-radius:14px;padding:10px 14px}
+#selbar .in.on{display:flex}#selbar img{width:42px;height:42px;border-radius:10px;object-fit:cover}
+#selbar .t{flex:1;min-width:0}#selbar .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#selbar .t span{color:var(--dim);font-size:.82rem}
+#grid{max-width:1200px;margin:0 auto;padding:0 16px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.g{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:8px;text-align:left;color:inherit;font:inherit;transition:transform .12s,border-color .12s}
+.g:hover,.g:focus-visible{transform:translateY(-2px);border-color:var(--acc);outline:none}
+.g.sel{border-color:var(--ok)}
+.g img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;background:#0d0b14}
+.g .n{font-weight:700;font-size:.9rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.g .s{color:var(--dim);font-size:.78rem;display:flex;justify-content:space-between;gap:6px}
+.sk{height:210px;border-radius:16px;background:linear-gradient(90deg,var(--card),#201a33,var(--card));background-size:200% 100%;animation:sh 1.2s infinite}@keyframes sh{to{background-position:-200% 0}}
+#empty{max-width:1200px;margin:30px auto;padding:0 16px;color:var(--dim);text-align:center}
+#modal{position:fixed;inset:0;background:rgba(5,3,12,.75);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+#modal.on{display:flex}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:20px;width:min(520px,100%);max-height:92vh;overflow:auto}
+.panel .ban{width:100%;aspect-ratio:16/9;object-fit:cover;background:#0d0b14;display:block}
+.panel .bd{padding:18px;display:flex;flex-direction:column;gap:12px}
+.panel h2{font-size:1.2rem}.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:#221b38;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:.78rem;color:var(--acc2)}
+.panel p{color:var(--dim);font-size:.88rem}.row{display:flex;gap:10px}.row .btn{flex:1;text-align:center}
+details{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--dim)}pre{white-space:pre-wrap;font-size:.75rem;max-height:200px;overflow:auto;background:var(--card);border-radius:10px;padding:10px;margin-top:6px}
+</style>
+</head>
+<body>
+<header><h1>Singularity<b>GG</b></h1><div id="status"><span id="dot"></span><span id="stext">Starting…</span></div></header>
+<div class="bar">
+  <input id="q" type="search" placeholder="Search games…" autocomplete="off">
+  <select id="cat" aria-label="Genre"><option value="__top">Top games</option></select>
+  <select id="sort" aria-label="Sort"><option value="popular">Most popular</option><option value="rating">Top rated</option><option value="az">A–Z</option></select>
+  <button class="btn" id="all" type="button">Load every genre</button>
+</div>
+<div id="meta"></div>
+<div id="selbar"><div class="in" id="selin"><img id="selimg" alt=""><div class="t"><b id="selname"></b><span id="selsub"></span></div><button class="btn pri" id="selgo" type="button" disabled title="Sessions aren't built yet">Launch (soon)</button></div></div>
+<div id="grid"></div>
+<div id="empty" hidden></div>
+<div id="modal"><div class="panel" role="dialog" aria-modal="true"><img class="ban" id="mban" alt=""><div class="bd"><h2 id="mtitle"></h2><div class="chips" id="mchips"></div><p id="minfo"></p><p>Sessions aren't wired up yet — selecting a game only saves your pick.</p><div class="row"><button class="btn" id="mclose" type="button">Close</button><button class="btn pri" id="mpick" type="button">Select game</button></div></div></div></div>
+<details><summary>Debug log</summary><pre id="log"></pre></details>
+
+<script type="module">
+import "./proxy.js";
+import { parseHub, loadGenre, mergeGames, filterGames, ORIGIN } from "./games.js";
+
+const $ = (id) => document.getElementById(id);
+const logEl = $("log");
+const log = (...a) => { logEl.textContent += a.join(" ") + "\n"; logEl.scrollTop = logEl.scrollHeight; };
+const say = (t) => { $("stext").textContent = t; };
+const setDot = (c) => { $("dot").className = c || ""; };
+const withTimeout = (p, ms, label) => { let t; return Promise.race([p, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(label + " timed out")), ms); })]).finally(() => clearTimeout(t)); };
+
+async function fetchText(url) {
+  let lastErr;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const { libcurl } = await window.__getProxy({ log, say });
+      const r = await withTimeout(libcurl.fetch(url, { method: "GET", redirect: "follow", headers: { accept: "text/html,*/*" } }), 25000, "Request");
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return await r.text();
+    } catch (e) {
+      lastErr = e; log("[fetch]", url, (e && e.message) || e);
+      if (i < 2) { try { await window.__rotateProxy(log, say); } catch (e2) { lastErr = e2; } }
+    }
+  }
+  throw lastErr;
+}
+
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+const S = { cats: [], top: [], byCat: new Map(), view: [], selected: store.get("sgg.selected"), busy: false, token: 0 };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function currentGames() {
+  const c = $("cat").value;
+  if (c === "__all") return mergeGames(...S.byCat.values());
+  if (c === "__top") return S.top;
+  return S.byCat.get(c) || [];
+}
+function render() {
+  const base = currentGames();
+  S.view = filterGames(base, { q: $("q").value, sort: $("sort").value });
+  const grid = $("grid"), empty = $("empty");
+  grid.innerHTML = S.view.map((g, i) =>
+    `<button class="g${S.selected && S.selected.id === g.id ? " sel" : ""}" data-i="${i}" type="button">` +
+    `<img loading="lazy" src="${esc(g.icon)}" alt="" onerror="this.style.visibility='hidden'">` +
+    `<span class="n">${esc(g.title)}</span><span class="s"><span>${esc(g.genres[0] || "")}</span><span>${g.rating ? "★ " + g.rating.toFixed(1) : ""}</span></span></button>`).join("");
+  empty.hidden = S.view.length > 0 || S.busy;
+  if (!empty.hidden) empty.textContent = base.length ? "No games match your search." : "No games loaded for this genre yet.";
+  $("meta").textContent = S.busy ? $("meta").textContent : `${S.view.length.toLocaleString()} of ${base.length.toLocaleString()} games`;
+  renderSel();
+}
+function renderSel() {
+  const g = S.selected, on = !!g;
+  $("selin").classList.toggle("on", on);
+  if (on) { $("selimg").src = g.icon; $("selname").textContent = g.title; $("selsub").textContent = g.genres.join(" · ") || "Selected game"; }
+}
+function skeleton(n = 12) { $("grid").innerHTML = Array.from({ length: n }, () => '<div class="sk"></div>').join(""); $("empty").hidden = true; }
+
+async function loadCategory(slug, token) {
+  if (S.byCat.has(slug)) return S.byCat.get(slug);
+  S.byCat.set(slug, []);
+  const games = await loadGenre(slug, fetchText, (list, p, n) => {
+    S.byCat.set(slug, list);
+    if (token === S.token) { $("meta").textContent = `Loading ${slug}… page ${p}/${n} (${list.length} games)`; render(); }
+  });
+  S.byCat.set(slug, games);
+  return games;
+}
+
+async function onCat() {
+  const slug = $("cat").value, token = ++S.token;
+  if (slug === "__top" || slug === "__all") { render(); return; }
+  if (S.byCat.has(slug) && S.byCat.get(slug).length) { render(); return; }
+  S.busy = true; skeleton(); $("meta").textContent = "Loading " + slug + "…";
+  try { S.byCat.delete(slug); await loadCategory(slug, token); setDot("ok"); }
+  catch (e) { S.byCat.delete(slug); setDot("err"); $("meta").textContent = "Failed to load: " + ((e && e.message) || e); log("[cat]", slug, (e && e.stack) || e); }
+  finally { S.busy = false; if (token === S.token) render(); }
+}
+
+async function loadEverything() {
+  const btn = $("all"), token = ++S.token, mains = S.cats.filter((c) => c.main);
+  btn.disabled = true; S.busy = true; $("cat").value = "__all"; skeleton();
+  let done = 0, fails = 0;
+  for (const c of mains) {
+    $("meta").textContent = `Loading all genres… ${done}/${mains.length} (${c.name})`;
+    try { S.byCat.delete(c.slug); await loadCategory(c.slug, -1); } catch (e) { fails++; S.byCat.delete(c.slug); log("[all]", c.slug, (e && e.message) || e); }
+    done++; if (token === S.token) render();
+  }
+  S.busy = false; btn.disabled = false; render();
+  $("meta").textContent += fails ? ` — ${fails} genre(s) failed, see debug log` : "";
+}
+
+function openModal(g) {
+  $("mban").src = g.banner || g.icon; $("mtitle").textContent = g.title;
+  $("mchips").innerHTML = [...g.genres, ...g.tags.slice(0, 5)].map((t) => `<span class="chip">${esc(t)}</span>`).join("");
+  $("minfo").textContent = [g.rating ? `★ ${g.rating.toFixed(1)} (${g.ratings.toLocaleString()} ratings)` : "", g.pkg].filter(Boolean).join(" · ");
+  $("mpick").onclick = () => { S.selected = g; store.set("sgg.selected", g); $("modal").classList.remove("on"); render(); };
+  $("modal").classList.add("on");
+}
+
+$("grid").addEventListener("click", (e) => { const b = e.target.closest(".g"); if (b) openModal(S.view[+b.dataset.i]); });
+$("mclose").onclick = () => $("modal").classList.remove("on");
+$("modal").addEventListener("click", (e) => { if (e.target === $("modal")) $("modal").classList.remove("on"); });
+addEventListener("keydown", (e) => { if (e.key === "Escape") $("modal").classList.remove("on"); });
+let qt; $("q").addEventListener("input", () => { clearTimeout(qt); qt = setTimeout(render, 120); });
+$("sort").addEventListener("change", render);
+$("cat").addEventListener("change", onCat);
+$("all").addEventListener("click", loadEverything);
+renderSel();
+
+(async function init() {
+  S.busy = true; skeleton(); $("meta").textContent = "Connecting to proxy…";
+  $("all").disabled = true;
+  try {
+    const html = await fetchText(ORIGIN + "/games.html");
+    const hub = parseHub(html);
+    if (!hub.categories.length && !hub.top.length) throw new Error("now.gg returned no game data (blocked or changed format)");
+    S.cats = hub.categories; S.top = hub.top;
+    const opt = (c) => `<option value="${esc(c.slug)}">${esc(c.name)}</option>`;
+    $("cat").innerHTML = '<option value="__top">Top games</option><option value="__all">All loaded games</option>' +
+      `<optgroup label="Genres">${hub.categories.filter((c) => c.main).map(opt).join("")}</optgroup>` +
+      `<optgroup label="More categories">${hub.categories.filter((c) => !c.main).map(opt).join("")}</optgroup>`;
+    setDot("ok"); say("Proxy connected"); $("all").disabled = false;
+  } catch (e) {
+    setDot("err"); say("Couldn't reach now.gg"); $("meta").textContent = "Error: " + ((e && e.message) || e) + " — reload to retry."; log("[init]", (e && e.stack) || e);
+  } finally { S.busy = false; render(); }
+})();
+</script>
+</body>
+</html>
