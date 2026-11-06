@@ -24,6 +24,7 @@ export function normalizeGame(g) {
     icon: d.icon || d.logo || mo.icon || mo.logo || "",
     banner: d.banner || d.ogimage || mo.banner || mo.ogimage || "",
     upcoming: !!g.upcoming,
+    publisher: "",
   };
 }
 
@@ -45,8 +46,13 @@ export function parseGenrePage(html) {
   if (!pp) return { games: [], pageCount: 0, pageSize: 0 };
   const data = (pp.genreDetails || {}).data || {};
   const raw = data.games || data.category_games || data.popularGames || [];
+  // publisher slugs only appear in the page's links (/apps/<publisher>/<id>/<slug>); attach them by now.gg id
+  const pubs = new Map();
+  for (const m of String(html).matchAll(/\/(?:apps|play)\/([a-z0-9._-]+)\/(\d+)\/([a-z0-9-]+)/gi)) if (!pubs.has(m[2])) pubs.set(m[2], m[1]);
+  const games = uniqBy(raw.map(normalizeGame).filter(Boolean), (g) => g.id);
+  for (const g of games) g.publisher = pubs.get(g.nowggId) || "";
   return {
-    games: uniqBy(raw.map(normalizeGame).filter(Boolean), (g) => g.id),
+    games,
     pageCount: Number(pp.pageCount) || Number(((pp.genreDetails || {}).meta || {}).maxPage) || 1,
     pageSize: Number(pp.pageSize) || 60,
   };
@@ -70,7 +76,10 @@ export async function loadGenre(slug, fetchText, onPage = () => {}) {
   return all;
 }
 
-export const mergeGames = (...lists) => uniqBy(lists.flat(), (g) => g.id);
+export const mergeGames = (...lists) => uniqBy(lists.flat().sort((a, b) => !!b.publisher - !!a.publisher), (g) => g.id);
+
+// Same URL shape now.gg uses for its own play pages.
+export const playUrl = (g) => (g && g.publisher && g.nowggId ? `${ORIGIN}/play/${g.publisher}/${g.nowggId}/${g.slug}` : "");
 
 export function filterGames(games, { q = "", sort = "popular" } = {}) {
   const s = q.trim().toLowerCase();

@@ -40,6 +40,7 @@ input:focus,select:focus{border-color:var(--acc)}
 .panel h2{font-size:1.2rem}.chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{background:#221b38;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:.78rem;color:var(--acc2)}
 .panel p{color:var(--dim);font-size:.88rem}.row{display:flex;gap:10px}.row .btn{flex:1;text-align:center}
+#player{position:fixed;inset:0;background:#000;z-index:20;display:flex;flex-direction:column}#player[hidden]{display:none}#pbar{display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--line)}#pbar b{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#pstage{flex:1;min-height:0;position:relative}#pstatus{position:absolute;inset:48px 0 0;display:flex;align-items:center;justify-content:center;color:var(--dim);pointer-events:none;text-align:center;padding:20px}#pstatus[hidden]{display:none}
 details{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--dim)}pre{white-space:pre-wrap;font-size:.75rem;max-height:200px;overflow:auto;background:var(--card);border-radius:10px;padding:10px;margin-top:6px}
 </style>
 </head>
@@ -47,20 +48,20 @@ details{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--dim)}pre{
 <header><h1>Singularity<b>GG</b></h1><div id="status"><span id="dot"></span><span id="stext">Starting…</span></div></header>
 <div class="bar">
   <input id="q" type="search" placeholder="Search games…" autocomplete="off">
-  <select id="cat" aria-label="Genre"><option value="__top">Top games</option></select>
+  <select id="cat" aria-label="Genre"><option value="__all">All games</option></select>
   <select id="sort" aria-label="Sort"><option value="popular">Most popular</option><option value="rating">Top rated</option><option value="az">A–Z</option></select>
-  <button class="btn" id="all" type="button">Load every genre</button>
 </div>
 <div id="meta"></div>
-<div id="selbar"><div class="in" id="selin"><img id="selimg" alt=""><div class="t"><b id="selname"></b><span id="selsub"></span></div><button class="btn pri" id="selgo" type="button" disabled title="Sessions aren't built yet">Launch (soon)</button></div></div>
+<div id="selbar"><div class="in" id="selin"><img id="selimg" alt=""><div class="t"><b id="selname"></b><span id="selsub"></span></div><button class="btn pri" id="selgo" type="button">Play game</button></div></div>
 <div id="grid"></div>
 <div id="empty" hidden></div>
-<div id="modal"><div class="panel" role="dialog" aria-modal="true"><img class="ban" id="mban" alt=""><div class="bd"><h2 id="mtitle"></h2><div class="chips" id="mchips"></div><p id="minfo"></p><p>Sessions aren't wired up yet — selecting a game only saves your pick.</p><div class="row"><button class="btn" id="mclose" type="button">Close</button><button class="btn pri" id="mpick" type="button">Select game</button></div></div></div></div>
+<div id="modal"><div class="panel" role="dialog" aria-modal="true"><img class="ban" id="mban" alt=""><div class="bd"><h2 id="mtitle"></h2><div class="chips" id="mchips"></div><p id="minfo"></p><div class="row"><button class="btn" id="mclose" type="button">Close</button><button class="btn pri" id="mpick" type="button">Play game</button></div></div></div></div>
+<div id="player" hidden><div id="pbar"><button class="btn" id="pback" type="button">← Back</button><b id="ptitle"></b><button class="btn" id="pfs" type="button">Fullscreen</button></div><div id="pstage"></div><div id="pstatus"></div></div>
 <details><summary>Debug log</summary><pre id="log"></pre></details>
 
 <script type="module">
 import "./proxy.js";
-import { parseHub, loadGenre, mergeGames, filterGames, ORIGIN } from "./games.js";
+import { parseHub, loadGenre, mergeGames, filterGames, playUrl, ORIGIN } from "./games.js";
 
 const $ = (id) => document.getElementById(id);
 const logEl = $("log");
@@ -90,13 +91,12 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
-const S = { cats: [], top: [], byCat: new Map(), view: [], selected: store.get("sgg.selected"), busy: false, token: 0 };
+const S = { cats: [], top: [], byCat: new Map(), view: [], selected: store.get("sgg.selected"), busy: false, token: 0, frame: null };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function currentGames() {
   const c = $("cat").value;
-  if (c === "__all") return mergeGames(...S.byCat.values());
-  if (c === "__top") return S.top;
+  if (c === "__all") return mergeGames(...S.byCat.values(), S.top);
   return S.byCat.get(c) || [];
 }
 function render() {
@@ -132,7 +132,7 @@ async function loadCategory(slug, token) {
 
 async function onCat() {
   const slug = $("cat").value, token = ++S.token;
-  if (slug === "__top" || slug === "__all") { render(); return; }
+  if (slug === "__all") { render(); return; }
   if (S.byCat.has(slug) && S.byCat.get(slug).length) { render(); return; }
   S.busy = true; skeleton(); $("meta").textContent = "Loading " + slug + "…";
   try { S.byCat.delete(slug); await loadCategory(slug, token); setDot("ok"); }
@@ -140,24 +140,49 @@ async function onCat() {
   finally { S.busy = false; if (token === S.token) render(); }
 }
 
-async function loadEverything() {
-  const btn = $("all"), token = ++S.token, mains = S.cats.filter((c) => c.main);
-  btn.disabled = true; S.busy = true; $("cat").value = "__all"; skeleton();
+async function loadAll() {
+  const token = ++S.token, mains = S.cats.filter((c) => c.main), queue = [...mains];
   let done = 0, fails = 0;
-  for (const c of mains) {
-    $("meta").textContent = `Loading all genres… ${done}/${mains.length} (${c.name})`;
-    try { S.byCat.delete(c.slug); await loadCategory(c.slug, -1); } catch (e) { fails++; S.byCat.delete(c.slug); log("[all]", c.slug, (e && e.message) || e); }
-    done++; if (token === S.token) render();
-  }
-  S.busy = false; btn.disabled = false; render();
-  $("meta").textContent += fails ? ` — ${fails} genre(s) failed, see debug log` : "";
+  S.busy = true;
+  const worker = async () => {
+    while (queue.length) {
+      const c = queue.shift();
+      try { S.byCat.delete(c.slug); await loadCategory(c.slug, token); }
+      catch (e) { fails++; S.byCat.delete(c.slug); log("[all]", c.slug, (e && e.message) || e); }
+      done++;
+      if (S.busy) $("meta").textContent = `Loading games… ${done}/${mains.length} genres`;
+      render();
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  S.busy = false; render();
+  if (fails) $("meta").textContent += ` — ${fails} genre(s) failed, see debug log`;
 }
+
+async function startPlay(g) {
+  if (!playUrl(g)) { $("meta").textContent = "No play link found for " + g.title; return; }
+  S.selected = g; store.set("sgg.selected", g); renderSel();
+  $("ptitle").textContent = g.title; $("player").hidden = false;
+  const st = $("pstatus"); st.hidden = false; st.textContent = "Starting " + g.title + "…";
+  try {
+    const px = await window.__getProxy({ log, say });
+    stopFrame();
+    const frame = new px.controller.ProxyFrame();
+    frame.iframe.style.cssText = "width:100%;height:100%;border:0;display:block";
+    frame.on_load = () => { st.hidden = true; };
+    S.frame = frame; $("pstage").replaceChildren(frame.iframe);
+    log("[play]", playUrl(g));
+    await frame.navigate_to(playUrl(g));
+  } catch (e) { st.hidden = false; st.textContent = "Couldn't start the game: " + ((e && e.message) || e); log("[play]", (e && e.stack) || e); }
+}
+function stopFrame() { S.frame = null; $("pstage").replaceChildren(); }
+function stopPlay() { stopFrame(); $("player").hidden = true; }
 
 function openModal(g) {
   $("mban").src = g.banner || g.icon; $("mtitle").textContent = g.title;
   $("mchips").innerHTML = [...g.genres, ...g.tags.slice(0, 5)].map((t) => `<span class="chip">${esc(t)}</span>`).join("");
   $("minfo").textContent = [g.rating ? `★ ${g.rating.toFixed(1)} (${g.ratings.toLocaleString()} ratings)` : "", g.pkg].filter(Boolean).join(" · ");
-  $("mpick").onclick = () => { S.selected = g; store.set("sgg.selected", g); $("modal").classList.remove("on"); render(); };
+  $("mpick").onclick = () => { $("modal").classList.remove("on"); render(); startPlay(g); };
   $("modal").classList.add("on");
 }
 
@@ -168,22 +193,23 @@ addEventListener("keydown", (e) => { if (e.key === "Escape") $("modal").classLis
 let qt; $("q").addEventListener("input", () => { clearTimeout(qt); qt = setTimeout(render, 120); });
 $("sort").addEventListener("change", render);
 $("cat").addEventListener("change", onCat);
-$("all").addEventListener("click", loadEverything);
+$("selgo").onclick = () => { if (S.selected) startPlay(S.selected); };
+$("pback").onclick = stopPlay;
+$("pfs").onclick = () => { const p = $("player"); (document.fullscreenElement ? document.exitFullscreen() : p.requestFullscreen && p.requestFullscreen()).catch?.(() => {}); };
 renderSel();
 
 (async function init() {
   S.busy = true; skeleton(); $("meta").textContent = "Connecting to proxy…";
-  $("all").disabled = true;
   try {
     const html = await fetchText(ORIGIN + "/games.html");
     const hub = parseHub(html);
     if (!hub.categories.length && !hub.top.length) throw new Error("now.gg returned no game data (blocked or changed format)");
     S.cats = hub.categories; S.top = hub.top;
     const opt = (c) => `<option value="${esc(c.slug)}">${esc(c.name)}</option>`;
-    $("cat").innerHTML = '<option value="__top">Top games</option><option value="__all">All loaded games</option>' +
+    $("cat").innerHTML = '<option value="__all">All games</option>' +
       `<optgroup label="Genres">${hub.categories.filter((c) => c.main).map(opt).join("")}</optgroup>` +
       `<optgroup label="More categories">${hub.categories.filter((c) => !c.main).map(opt).join("")}</optgroup>`;
-    setDot("ok"); say("Proxy connected"); $("all").disabled = false;
+    setDot("ok"); say("Proxy connected"); S.busy = false; render(); loadAll();
   } catch (e) {
     setDot("err"); say("Couldn't reach now.gg"); $("meta").textContent = "Error: " + ((e && e.message) || e) + " — reload to retry."; log("[init]", (e && e.stack) || e);
   } finally { S.busy = false; render(); }
